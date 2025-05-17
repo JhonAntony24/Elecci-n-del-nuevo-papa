@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 
 function App() {
   const [candidates, setCandidates] = useState(Array(10).fill(''));
   const [votes, setVotes] = useState(Array(10).fill(0));
+  const [voterName, setVoterName] = useState('');
+  const [selectedCandidate, setSelectedCandidate] = useState('');
   const [results, setResults] = useState(null);
 
   const handleNameChange = (index, value) => {
@@ -12,47 +14,55 @@ function App() {
     setCandidates(newCandidates);
   };
 
-  const generateVotes = async () => {
-  const randomVotes = Array(10).fill(0);
-  for (let i = 0; i < 30; i++) {
-    const vote = Math.floor(Math.random() * 10);
-    randomVotes[vote]++;
-  }
+  const handleVote = () => {
+    const candidateIndex = candidates.findIndex(name => name === selectedCandidate);
+    if (voterName.trim() === '' || candidateIndex === -1) {
+      alert('Por favor, ingrese su nombre y seleccione un candidato válido.');
+      return;
+    }
 
-  setVotes(randomVotes);
+    const newVotes = [...votes];
+    newVotes[candidateIndex]++;
+    setVotes(newVotes);
+    setVoterName('');
+    setSelectedCandidate('');
+  };
 
-  const resultArray = candidates.map((name, index) => ({
-    nombre: name,
-    votos: randomVotes[index],
-  }));
+  const calculateResults = async () => {
+    const resultArray = candidates.map((name, index) => ({
+      nombre: name,
+      votos: votes[index],
+    }));
 
-  resultArray.sort((a, b) => b.votos - a.votos);
+    resultArray.sort((a, b) => b.votos - a.votos);
 
-  setResults({
-    topThree: resultArray.slice(0, 3),
-    winner: resultArray[0],
-  });
-
-  try {
-    await fetch('http://localhost:5000/api/candidatos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(resultArray),
+    setResults({
+      topThree: resultArray.slice(0, 3),
+      winner: resultArray[0],
     });
-  } catch (err) {
-    console.error('❌ Error al guardar candidatos:', err);
-  }
-};
+
+    try {
+      await fetch('http://localhost:5000/api/candidatos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resultArray),
+      });
+    } catch (err) {
+      console.error('❌ Error al guardar candidatos:', err);
+    }
+  };
 
   const reset = () => {
     setCandidates(Array(10).fill(''));
     setVotes(Array(10).fill(0));
     setResults(null);
+    setVoterName('');
+    setSelectedCandidate('');
   };
 
   return (
     <div className="app-container">
-      <h1>🗳️Elección del Nuevo Papa</h1>
+      <h1>🗳️ Elección del Nuevo Papa</h1>
 
       <div className="form-section">
         {candidates.map((candidate, index) => (
@@ -66,21 +76,48 @@ function App() {
           />
         ))}
 
+        <hr />
+
+        <h2>Registrar Voto</h2>
+        <input
+          type="text"
+          placeholder="Tu nombre"
+          value={voterName}
+          onChange={(e) => setVoterName(e.target.value)}
+          className="input-candidate"
+        />
+
+        <select
+          value={selectedCandidate}
+          onChange={(e) => setSelectedCandidate(e.target.value)}
+          className="input-candidate"
+        >
+          <option value="">Selecciona un candidato</option>
+          {candidates.map((candidate, index) =>
+            candidate ? (
+              <option key={index} value={candidate}>
+                {candidate}
+              </option>
+            ) : null
+          )}
+        </select>
+
         <div className="button-group">
-          <button onClick={generateVotes} className="btn primary">Elegir Ganador</button>
+          <button onClick={handleVote} className="btn primary">Votar</button>
+          <button onClick={calculateResults} className="btn success">Ver Resultados</button>
           <button onClick={reset} className="btn secondary">Resetear</button>
         </div>
       </div>
 
       {results && (
         <div className="results-section">
-          <h2>🏆 Ganador: <span className="highlight">{results.winner.name}</span> con {results.winner.votes} votos</h2>
+          <h2>🏆 Ganador: <span className="highlight">{results.winner.nombre}</span> con {results.winner.votos} votos</h2>
           <h3>Top 3 Candidatos:</h3>
           <div className="cards">
             {results.topThree.map((candidate, index) => (
               <div key={index} className="card">
-                <strong>{candidate.name}</strong>
-                <p>{candidate.votes} votos</p>
+                <strong>{candidate.nombre}</strong>
+                <p>{candidate.votos} votos</p>
               </div>
             ))}
           </div>
